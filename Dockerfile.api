@@ -12,7 +12,7 @@ COPY scripts ./scripts
 
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir uv \
-    && uv pip sync --system --locked
+    && uv pip sync --system uv.lock
 
 EXPOSE 8000
 
