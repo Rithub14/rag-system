@@ -1,0 +1,12 @@
+__pycache__/
+.venv/
+.git/
+.gitignore
+.env
+.env.*
+*.sqlite
+data/
+reports/
+grafana/
+prometheus.yml
+tests/

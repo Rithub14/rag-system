@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rag-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rag-ui
+  template:
+    metadata:
+      labels:
+        app: rag-ui
+    spec:
+      containers:
+        - name: ui
+          image: ghcr.io/your-org/your-repo-ui:latest
+          ports:
+            - containerPort: 8501
+          envFrom:
+            - configMapRef:
+                name: rag-app-config
