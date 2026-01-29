@@ -29,6 +29,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set lowercase owner
+        run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
+
       - name: Build and push API image
         uses: docker/build-push-action@v5
         with:
@@ -36,8 +39,8 @@ jobs:
           file: Dockerfile.api
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}-api:latest
-            ghcr.io/${{ github.repository }}-api:${{ github.sha }}
+            ghcr.io/${{ env.OWNER_LC }}/rag-system-api:latest
+            ghcr.io/${{ env.OWNER_LC }}/rag-system-api:${{ github.sha }}
 
       - name: Build and push Streamlit image
         uses: docker/build-push-action@v5
@@ -46,5 +49,5 @@ jobs:
           file: Dockerfile.streamlit
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}-ui:latest
-            ghcr.io/${{ github.repository }}-ui:${{ github.sha }}
+            ghcr.io/${{ env.OWNER_LC }}/rag-system-ui:latest
+            ghcr.io/${{ env.OWNER_LC }}/rag-system-ui:${{ github.sha }}
