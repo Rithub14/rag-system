@@ -4,3 +4,7 @@ __pycache__/
 .uv/
 .ruff_cache/
 .pytest_cache/
+src/enterprise_rag_system.egg-info
+.egg-info/
+reports/
+data/app.db
