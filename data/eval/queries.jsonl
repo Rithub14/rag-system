@@ -1,0 +1,2 @@
+{"query":"What is Function Frame Insight (FFI)?","user_id":"eval_user","doc_id":"sample","expected_sources":["sample.txt#0"]}
+{"query":"List primary users of FFI.","user_id":"eval_user","doc_id":"sample","expected_sources":["sample.txt#0","sample.txt#1"]}

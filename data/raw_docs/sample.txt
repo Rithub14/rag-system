@@ -1,0 +1,127 @@
+Project Name: Function Frame Insight
+Document Type: Internal Engineering Notes
+Version: 0.3
+Last Updated: 2025-11-02
+Owner: Systems Engineering Team
+
+--------------------------------------------------
+1. SYSTEM OVERVIEW
+--------------------------------------------------
+
+Function Frame Insight (FFI) is an internal analysis tool designed to help engineers
+understand complex signal flows, calibration labels, and dependencies inside
+large-scale automotive control software.
+
+The system operates primarily on model-based artifacts such as function frames,
+signal routing graphs, and calibration parameter mappings.
+
+Primary users are:
+- Calibration Engineers
+- Function Owners
+- Test & Validation Engineers
+
+--------------------------------------------------
+2. KEY TERMINOLOGY
+--------------------------------------------------
+
+Function Frame:
+A logical grouping of signals, parameters, and processing logic. A function frame
+may reference other frames either directly or indirectly.
+
+Signal:
+A time-dependent value propagated between function frames. Signals may be raw,
+derived, or diagnostic.
+
+Calibration Label (Cal-Label):
+A configurable parameter that alters system behavior without changing code.
+Cal-labels may be direction-sensitive (forward vs backward).
+
+--------------------------------------------------
+3. FORWARD VS BACKWARD ANALYSIS
+--------------------------------------------------
+
+Forward Analysis:
+Used to determine the downstream impact of a signal or calibration label.
+Example question:
+"What output signals are affected if Cal_Label_C is changed?"
+
+Backward Analysis:
+Used to determine the upstream dependencies of a signal.
+Example question:
+"Which input signals and calibration labels influence Signal_X?"
+
+Note:
+Backward analysis is generally more computationally expensive due to
+fan-in complexity.
+
+--------------------------------------------------
+4. EXAMPLE: CAL_LABEL_C BEHAVIOR
+--------------------------------------------------
+
+Cal_Label_C controls a limiting factor applied during torque calculation
+inside the function frame TorqueLimiter_CA.
+
+Observed behavior:
+- If Cal_Label_C < 0.3 → torque limiting is inactive
+- If 0.3 ≤ Cal_Label_C ≤ 0.8 → progressive torque limiting
+- If Cal_Label_C > 0.8 → hard torque clamp is applied
+
+This label influences the following downstream signals:
+- ETMTElm1_TqDes
+- ETMTElm1_TqLim
+
+--------------------------------------------------
+5. SIGNAL INVESTIGATION SCENARIO
+--------------------------------------------------
+
+Problem:
+An unexpected torque reduction is observed during acceleration.
+
+Primary affected signal:
+ETMTElm1_TqDes
+
+Initial hypothesis:
+Torque reduction is caused by TorqueLimiter_CA.
+
+Required backward analysis:
+- Identify all signals entering TorqueLimiter_CA
+- Identify all calibration labels referenced by TorqueLimiter_CA
+- Verify which of those signals are non-zero in the measurement
+
+Important:
+Some calibration labels only apply under specific operating modes
+(e.g., limp mode, thermal protection).
+
+--------------------------------------------------
+6. TESTING AND MEASUREMENT GUIDELINES
+--------------------------------------------------
+
+When investigating unexpected signal behavior, the following signals should
+always be included in the measurement:
+
+- Requested Torque
+- Limited Torque
+- Vehicle Speed
+- Thermal State
+- Active Diagnostic Flags
+
+Failure to measure diagnostic flags may lead to incorrect root cause analysis.
+
+--------------------------------------------------
+7. COMMON PITFALLS
+--------------------------------------------------
+
+- Assuming all calibration labels are always active
+- Ignoring backward signal dependencies
+- Forgetting mode-based activation logic
+- Mixing up similarly named signals across different function frames
+
+--------------------------------------------------
+8. OPEN QUESTIONS
+--------------------------------------------------
+
+- Should backward analysis include historical signal values?
+- How should conflicting calibration labels be prioritized?
+- Can automatic test case generation be derived from backward analysis?
+
+End of document.
