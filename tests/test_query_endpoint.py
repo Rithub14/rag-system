@@ -4,8 +4,8 @@ from types import SimpleNamespace
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from enterprise_rag_system.app.api.query import router as query_router
-from enterprise_rag_system.app.observability.ratelimit import rate_limiter
+from rag_system.app.api.query import router as query_router
+from rag_system.app.observability.ratelimit import rate_limiter
 
 
 class DummyVectorRetriever:
@@ -52,11 +52,11 @@ def test_query_endpoint_basic(monkeypatch):
     app.state.langfuse = None
 
     monkeypatch.setattr(
-        "enterprise_rag_system.app.api.query.OpenAI",
+        "rag_system.app.api.query.OpenAI",
         lambda api_key=None: DummyOpenAI(),
     )
     monkeypatch.setattr(
-        "enterprise_rag_system.app.api.query.rerank_with_scores",
+        "rag_system.app.api.query.rerank_with_scores",
         lambda q, docs: [(d, 1.0) for d in docs],
     )
     rate_limiter._events.clear()

@@ -17,7 +17,7 @@ uv run -m scripts.ingest_docs
 
 3) Run the API
 ```
-PYTHONPATH=src uv run -m uvicorn enterprise_rag_system.main:app
+PYTHONPATH=src uv run -m uvicorn rag_system.main:app
 ```
 
 4) Query

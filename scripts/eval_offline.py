@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -8,10 +9,15 @@ from typing import Dict, List, Tuple
 from dotenv import load_dotenv
 from openai import OpenAI, OpenAIError
 
-from src.enterprise_rag_system.app.retrieval.reranker import rerank_with_scores
-from src.enterprise_rag_system.app.retrieval.vector import get_client
-from src.enterprise_rag_system.app.retrieval.vector_retriever import WeaviateRetriever
-from src.enterprise_rag_system.app.response.context_builder import build_context
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+
+from rag_system.app.retrieval.reranker import rerank_with_scores
+from rag_system.app.retrieval.vector import get_client
+from rag_system.app.retrieval.vector_retriever import WeaviateRetriever
+from rag_system.app.response.context_builder import build_context
 from weaviate.classes.query import Filter
 
 

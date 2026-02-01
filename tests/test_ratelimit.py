@@ -1,7 +1,7 @@
 import pytest
 from fastapi import HTTPException
 
-from enterprise_rag_system.app.observability.ratelimit import RateLimiter
+from rag_system.app.observability.ratelimit import RateLimiter
 
 
 def test_rate_limiter_blocks_after_limit():

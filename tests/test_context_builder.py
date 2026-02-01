@@ -1,4 +1,4 @@
-from enterprise_rag_system.app.response.context_builder import build_context
+from rag_system.app.response.context_builder import build_context
 
 
 def test_build_context_limits_and_returns_used_chunks():
