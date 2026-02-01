@@ -56,6 +56,18 @@ Optional:
 
 See `.env.template`.
 
+## Agentic features
+
+- Tool router in the answer stage (summarize, extract facts, compare, checklist, draft email).
+- Document-aware tools (find tables, list definitions, citations by section).
+- Follow-up question generator (2–3 suggestions after each answer).
+- Optional query planning + retrieval refinement (toggle).
+
+Toggles:
+- `ENABLE_TOOL_ROUTER`, `ENABLE_DOC_ACTIONS`
+- `ENABLE_FOLLOWUPS`
+- `ENABLE_PLANNING` (off by default)
+
 ## Tracing (Langfuse)
 
 Traces include spans for:
