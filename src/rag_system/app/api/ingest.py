@@ -4,6 +4,7 @@ import uuid
 from typing import Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from openai import OpenAIError
 from pypdf import PdfReader
 
 from ..observability.ratelimit import rate_limiter
@@ -107,9 +108,21 @@ async def ingest_file(
         "source": file.filename or "uploaded.pdf",
     }
     chunks = chunk_text(text, metadata)
-    embeddings = embed_texts([c.content for c in chunks])
+    try:
+        embeddings = embed_texts([c.content for c in chunks])
+    except OpenAIError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="Embedding provider error. Check OPENAI_API_KEY.",
+        ) from exc
 
-    client = get_client()
+    try:
+        client = get_client()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Vector store unavailable. Try again in a minute.",
+        ) from exc
     try:
         ensure_schema(client)
         store_chunks(client, chunks, embeddings)
