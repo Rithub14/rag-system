@@ -1,12 +1,18 @@
 import logging
 import os
 import time
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Request
 from openai import OpenAI, OpenAIError
 from pydantic import BaseModel, Field
 
+from ..generation.agentic import (
+    generate_followups,
+    plan_queries,
+    run_tool,
+    select_tool,
+)
 from ..retrieval.bm25_retriever import BM25Retriever
 from ..retrieval.faiss_store import get_store
 from ..retrieval.embeddings import embed_texts
@@ -39,6 +45,9 @@ class QueryRequest(BaseModel):
     temperature: float = Field(0.2, ge=0.0, le=1.0)
     rerank: bool = True
     include_citations: bool = True
+    enable_tools: Optional[bool] = None
+    enable_followups: Optional[bool] = None
+    enable_planning: Optional[bool] = None
 
 
 class QueryResult(BaseModel):
@@ -55,6 +64,10 @@ class QueryResponse(BaseModel):
     context: str
     citations: Dict[str, List[Dict[str, Optional[str]]]]
     results: List[QueryResult]
+    tool_used: Optional[str] = None
+    tool_output: Optional[str] = None
+    follow_ups: List[str] = []
+    plan: Optional[Dict[str, Any]] = None
 
 
 @router.post("/query", response_model=QueryResponse)
@@ -90,6 +103,12 @@ def query_docs(
         if trace_id:
             trace_token = trace_id_var.set(trace_id)
 
+    def env_flag(name: str, default: bool) -> bool:
+        raw = os.getenv(name)
+        if raw is None:
+            return default
+        return raw.strip().lower() in {"1", "true", "yes", "on"}
+
     def chunk_id(chunk: Dict) -> str:
         return f"{chunk.get('source', 'unknown')}#{chunk.get('chunk_index', '0')}"
 
@@ -106,6 +125,29 @@ def query_docs(
         span.end(metadata={"latency_ms": 0})
 
     try:
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise OpenAIError(
+                "OPENAI_API_KEY is not set. Export it or set it in your .env file."
+            )
+        client = OpenAI(api_key=api_key)
+        enable_tools = (
+            payload.enable_tools
+            if payload.enable_tools is not None
+            else env_flag("ENABLE_TOOL_ROUTER", True)
+        )
+        enable_followups = (
+            payload.enable_followups
+            if payload.enable_followups is not None
+            else env_flag("ENABLE_FOLLOWUPS", True)
+        )
+        enable_planning = (
+            payload.enable_planning
+            if payload.enable_planning is not None
+            else env_flag("ENABLE_PLANNING", False)
+        )
+        enable_doc_actions = env_flag("ENABLE_DOC_ACTIONS", True)
+
         try:
             store = get_store()
         except Exception as exc:
@@ -113,6 +155,31 @@ def query_docs(
             raise HTTPException(
                 status_code=503, detail="Vector store is unavailable."
             ) from exc
+
+        plan = None
+        planned_queries = [payload.query]
+        if enable_planning:
+            planning_span = trace.span(name="planning") if trace else None
+            planning_start = time.perf_counter()
+            plan = plan_queries(client, payload.query, payload.doc_id)
+            planned_queries = plan.get("queries") or planned_queries
+            planning_latency = (time.perf_counter() - planning_start) * 1000
+            LATENCY_SECONDS.labels(stage="planning").observe(
+                planning_latency / 1000
+            )
+            logger.info(
+                "agentic_planning",
+                extra={
+                    "user_id": user_context["user_id"],
+                    "queries": planned_queries,
+                    "doc_id": payload.doc_id,
+                },
+            )
+            if planning_span is not None:
+                planning_span.end(
+                    metadata={"latency_ms": round(planning_latency, 2)},
+                    output=plan,
+                )
 
         # Dense retrieval
         dense_span = (
@@ -122,7 +189,7 @@ def query_docs(
         )
         dense_start = time.perf_counter()
         try:
-            query_vec = embed_texts([payload.query])[0]
+            query_vecs = embed_texts(planned_queries)
         except OpenAIError as exc:
             ERRORS_TOTAL.labels(endpoint="/api/query").inc()
             raise HTTPException(
@@ -131,12 +198,21 @@ def query_docs(
             ) from exc
 
         try:
-            dense_results = store.search(
-                query_vector=query_vec,
-                k=payload.k,
-                user_id=user_context["user_id"],
-                doc_id=payload.doc_id,
-            )
+            dense_results = []
+            seen_ids = set()
+            for vec in query_vecs:
+                results = store.search(
+                    query_vector=vec,
+                    k=payload.k,
+                    user_id=user_context["user_id"],
+                    doc_id=payload.doc_id,
+                )
+                for doc in results:
+                    doc_key = chunk_id(doc)
+                    if doc_key in seen_ids:
+                        continue
+                    seen_ids.add(doc_key)
+                    dense_results.append(doc)
         except Exception as exc:
             ERRORS_TOTAL.labels(endpoint="/api/query").inc()
             raise HTTPException(
@@ -220,21 +296,49 @@ def query_docs(
                 output={"chunk_ids": [chunk_id(doc) for doc in used_chunks]},
             )
 
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise OpenAIError(
-                "OPENAI_API_KEY is not set. Export it or set it in your .env file."
+        tool_used = None
+        tool_output = None
+        if enable_tools and context_text:
+            tool_used = select_tool(
+                client,
+                payload.query,
+                context_text,
+                enable_doc_actions=enable_doc_actions,
             )
-        client = OpenAI(api_key=api_key)
+            if tool_used == "none":
+                tool_used = None
+            if tool_used:
+                tool_output = run_tool(
+                    client,
+                    tool_used,
+                    payload.query,
+                    context_text,
+                    used_chunks,
+                )
+                logger.info(
+                    "agentic_tool_used",
+                    extra={
+                        "user_id": user_context["user_id"],
+                        "tool": tool_used,
+                        "doc_id": payload.doc_id,
+                        "output_chars": len(tool_output or ""),
+                    },
+                )
+
         gen_span = trace.span(name="generation") if trace else None
         gen_start = time.perf_counter()
+        tool_block = (
+            f"\n\nTool output ({tool_used}):\n{tool_output}\n"
+            if tool_used and tool_output
+            else ""
+        )
         completion = client.chat.completions.create(
             model="gpt-4.1-mini",
             messages=[
                 {"role": "system", "content": "You are an enterprise RAG assistant."},
                 {
                     "role": "user",
-                    "content": f"{context_text}\n\nQuestion: {payload.query}",
+                    "content": f"{context_text}{tool_block}\n\nQuestion: {payload.query}",
                 },
             ],
             max_tokens=payload.max_answer_tokens,
@@ -289,6 +393,33 @@ def query_docs(
                 else None,
             },
         )
+        follow_ups: List[str] = []
+        if enable_followups:
+            followups_span = trace.span(name="followups") if trace else None
+            followups_start = time.perf_counter()
+            follow_ups = generate_followups(
+                client,
+                payload.query,
+                answer,
+                context_text,
+            )
+            followups_latency = (time.perf_counter() - followups_start) * 1000
+            LATENCY_SECONDS.labels(stage="followups").observe(
+                followups_latency / 1000
+            )
+            logger.info(
+                "agentic_followups",
+                extra={
+                    "user_id": user_context["user_id"],
+                    "doc_id": payload.doc_id,
+                    "count": len(follow_ups),
+                },
+            )
+            if followups_span is not None:
+                followups_span.end(
+                    metadata={"latency_ms": round(followups_latency, 2)},
+                    output={"follow_ups": follow_ups},
+                )
     except Exception:
         ERRORS_TOTAL.labels(endpoint="/api/query").inc()
         logger.exception("query_failed")
@@ -326,4 +457,8 @@ def query_docs(
         context=context_text,
         citations={"used": citations_used, "related": citations_related},
         results=[QueryResult(**result) for result in filtered_results],
+        tool_used=tool_used,
+        tool_output=tool_output,
+        follow_ups=follow_ups,
+        plan=plan,
     )
