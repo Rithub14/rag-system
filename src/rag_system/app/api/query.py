@@ -3,12 +3,13 @@ import os
 import time
 from typing import Dict, List, Optional
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 from openai import OpenAI, OpenAIError
 from pydantic import BaseModel, Field
 
 from ..retrieval.bm25_retriever import BM25Retriever
 from ..retrieval.reranker import rerank_with_scores
+from ..retrieval.vector import get_client
 from ..retrieval.vector_retriever import WeaviateRetriever
 from ..response.context_builder import build_context
 from ..observability.metrics import (
@@ -106,7 +107,20 @@ def query_docs(
         span.end(metadata={"latency_ms": 0})
 
     try:
-        vector_retriever: WeaviateRetriever = request.app.state.vector_retriever
+        vector_retriever: WeaviateRetriever | None = getattr(
+            request.app.state, "vector_retriever", None
+        )
+        if vector_retriever is None:
+            try:
+                client = get_client()
+            except Exception as exc:
+                ERRORS_TOTAL.labels(endpoint="/api/query").inc()
+                raise HTTPException(
+                    status_code=503, detail="Vector store is unavailable."
+                ) from exc
+            request.app.state.weaviate_client = client
+            vector_retriever = WeaviateRetriever(client)
+            request.app.state.vector_retriever = vector_retriever
 
         # Dense retrieval
         dense_span = (

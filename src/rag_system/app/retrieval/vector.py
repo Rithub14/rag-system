@@ -18,6 +18,9 @@ def get_client() -> weaviate.WeaviateClient:
     grpc_port = int(os.getenv("WEAVIATE_GRPC_PORT", "50051"))
     grpc_secure = os.getenv("WEAVIATE_GRPC_SECURE", "false").lower() == "true"
 
+    if grpc_host == http_host and grpc_port == http_port:
+        grpc_port = 50051 if http_port != 50051 else 50052
+
     return weaviate.connect_to_custom(
         http_host=http_host,
         http_port=http_port,

@@ -47,10 +47,10 @@ async def ensure_browser_id(request: Request, call_next):
 
 @app.on_event("startup")
 def startup() -> None:
-    client = get_client()
-    app.state.weaviate_client = client
-    vector_retriever = WeaviateRetriever(client)
-    app.state.vector_retriever = vector_retriever
+    # Defer Weaviate connection to first request so the API can start
+    # even if Weaviate is sleeping or temporarily unavailable.
+    app.state.weaviate_client = None
+    app.state.vector_retriever = None
     app.state.langfuse = get_langfuse(raise_if_configured=True)
 
 
