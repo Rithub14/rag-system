@@ -1,4 +1,6 @@
 import os
+import time
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
 
@@ -32,12 +34,25 @@ def ensure_user_id() -> str:
     params = st.query_params
     if "uid" in params and params["uid"]:
         return params["uid"]
-    with httpx.Client(timeout=10) as client:
-        resp = client.get(SESSION_URL)
-        resp.raise_for_status()
-        user_id = resp.json()["user_id"]
-    st.query_params["uid"] = user_id
-    return user_id
+    last_exc: Exception | None = None
+    for attempt in range(3):
+        try:
+            with httpx.Client(timeout=30) as client:
+                resp = client.get(SESSION_URL)
+                resp.raise_for_status()
+                user_id = resp.json()["user_id"]
+                st.query_params["uid"] = user_id
+                return user_id
+        except Exception as exc:
+            last_exc = exc
+            time.sleep(1 + attempt)
+    fallback = str(uuid.uuid4())
+    st.warning(
+        "Session service is slow/unavailable right now, so a temporary session "
+        "ID was created. Please refresh later to restore normal limits."
+    )
+    st.query_params["uid"] = fallback
+    return fallback
 
 st.set_page_config(page_title="RAG App", layout="wide")
 st.title("RAG App")
