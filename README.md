@@ -29,8 +29,7 @@ curl -X POST "http://127.0.0.1:8000/api/query" \
 uv run -m streamlit run streamlit_app.py
 ```
 
-Live demo:
-`https://rag-ui-0d2k.onrender.com`
+Live demo: [rag-ui-0d2k.onrender.com](https://rag-ui-0d2k.onrender.com)
 
 ## PDF ingestion
 
