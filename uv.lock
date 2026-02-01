@@ -482,7 +482,7 @@ wheels = [
 ]
 
 [[package]]
-name = "enterprise-rag-system"
+name = "rag-system"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

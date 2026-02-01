@@ -1,7 +1,7 @@
 [project]
-name = "enterprise-rag-system"
+name = "rag-system"
 version = "0.1.0"
-description = "Enterprise RAG system with access-aware retrieval and evaluation"
+description = "RAG system with access-aware retrieval and evaluation"
 readme = "README.md"
 requires-python = ">=3.10"
 

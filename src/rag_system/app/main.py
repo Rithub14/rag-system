@@ -15,7 +15,7 @@ load_dotenv(".env")
 configure_langfuse_logging()
 configure_json_logging()
 
-app = FastAPI(title="Enterprise RAG System")
+app = FastAPI(title="RAG System")
 
 @app.middleware("http")
 async def add_request_id(request: Request, call_next):

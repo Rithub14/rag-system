@@ -1,6 +1,6 @@
-# Enterprise RAG System
+# RAG System
 
-Enterprise RAG pipeline with user-scoped retrieval, reranking, tracing, metrics,
+RAG pipeline with user-scoped retrieval, reranking, tracing, metrics,
 and offline evaluation.
 
 ## Quick start
