@@ -1,0 +1,52 @@
+services:
+  - type: web
+    name: weaviate
+    runtime: image
+    image:
+      url: semitechnologies/weaviate:1.27.0
+    plan: free
+    envVars:
+      - key: QUERY_DEFAULTS_LIMIT
+        value: "25"
+      - key: AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED
+        value: "true"
+      - key: PERSISTENCE_DATA_PATH
+        value: /var/lib/weaviate
+      - key: DEFAULT_VECTORIZER_MODULE
+        value: none
+      - key: ENABLE_MODULES
+        value: ""
+      - key: PORT
+        value: "8080"
+
+  - type: web
+    name: rag-api
+    runtime: docker
+    dockerfilePath: Dockerfile.api
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: WEAVIATE_URL
+        value: http://weaviate:8080
+      - key: WEAVIATE_GRPC_HOST
+        value: weaviate
+      - key: WEAVIATE_GRPC_PORT
+        value: "50051"
+      - key: WEAVIATE_GRPC_SECURE
+        value: "false"
+      - key: APP_ENV
+        value: production
+
+  - type: web
+    name: rag-ui
+    runtime: docker
+    dockerfilePath: Dockerfile.streamlit
+    plan: free
+    envVars:
+      - key: API_BASE_URL
+        fromService:
+          type: web
+          name: rag-api
+          envVarKey: RENDER_EXTERNAL_URL
