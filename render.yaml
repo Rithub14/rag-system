@@ -15,6 +15,14 @@ services:
         value: data/faiss.index
       - key: APP_ENV
         value: production
+      - key: ENABLE_TOOL_ROUTER
+        value: "true"
+      - key: ENABLE_FOLLOWUPS
+        value: "true"
+      - key: ENABLE_PLANNING
+        value: "false"
+      - key: ENABLE_DOC_ACTIONS
+        value: "true"
 
   - type: web
     name: rag-ui
