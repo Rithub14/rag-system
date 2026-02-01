@@ -2,6 +2,7 @@ services:
   - type: web
     name: weaviate
     runtime: image
+    region: frankfurt
     image:
       url: semitechnologies/weaviate:1.27.0
     plan: free
@@ -22,6 +23,7 @@ services:
   - type: web
     name: rag-api
     runtime: docker
+    region: frankfurt
     dockerfilePath: Dockerfile.api
     plan: free
     healthCheckPath: /health
@@ -42,6 +44,7 @@ services:
   - type: web
     name: rag-ui
     runtime: docker
+    region: frankfurt
     dockerfilePath: Dockerfile.streamlit
     plan: free
     envVars:
