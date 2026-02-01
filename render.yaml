@@ -6,13 +6,17 @@ services:
     dockerfilePath: Dockerfile.api
     plan: free
     healthCheckPath: /health
+    disk:
+      name: rag-data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: OPENAI_API_KEY
         sync: false
       - key: RAG_DB_PATH
-        value: data/rag.db
+        value: /var/data/rag.db
       - key: RAG_INDEX_PATH
-        value: data/faiss.index
+        value: /var/data/faiss.index
       - key: APP_ENV
         value: production
 
