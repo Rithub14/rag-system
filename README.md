@@ -57,7 +57,6 @@ Optional:
 - `WEAVIATE_URL` (default `http://localhost:8080`)
 - `WEAVIATE_GRPC_PORT` (default `50051`)
 - `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST`
-- `ARIZE_PHOENIX_API_KEY`, `ARIZE_PHOENIX_DEPLOYMENT`
 - `APP_ENV`
 
 See `.env.template`.
@@ -110,27 +109,10 @@ Reports:
 - `reports/eval_report.json`
 - `reports/eval_report.md`
 
-## Deployment (Docker + K8s + GH Actions)
+## Docker build
 
 Build images locally:
 ```
 docker build -f Dockerfile.api -t rag-api:local .
 docker build -f Dockerfile.streamlit -t rag-ui:local .
 ```
-
-GitHub Actions builds and pushes to GHCR on `main`:
-- `ghcr.io/<owner>/<repo>-api:latest`
-- `ghcr.io/<owner>/<repo>-ui:latest`
-
-Kubernetes manifests are in `k8s/`:
-```
-kubectl apply -f k8s/app-configmap.yaml
-kubectl apply -f k8s/app-secret.example.yaml
-kubectl apply -f k8s/redis-deployment.yaml -f k8s/redis-service.yaml
-kubectl apply -f k8s/weaviate-deployment.yaml -f k8s/weaviate-service.yaml
-kubectl apply -f k8s/api-deployment.yaml -f k8s/api-service.yaml
-kubectl apply -f k8s/streamlit-deployment.yaml -f k8s/streamlit-service.yaml
-kubectl apply -f k8s/monitoring/
-```
-
-Update image names in `k8s/*deployment.yaml` to match your GHCR repo.
