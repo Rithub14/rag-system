@@ -8,8 +8,8 @@ from rag_system.app.api.query import router as query_router
 from rag_system.app.observability.ratelimit import rate_limiter
 
 
-class DummyVectorRetriever:
-    def query(self, query_text, k=10, filters=None):
+class DummyStore:
+    def search(self, query_vector, k=10, user_id=None, doc_id=None):
         return [
             {
                 "content": "hello world",
@@ -48,12 +48,19 @@ def test_query_endpoint_basic(monkeypatch):
 
     app = FastAPI()
     app.include_router(query_router, prefix="/api")
-    app.state.vector_retriever = DummyVectorRetriever()
     app.state.langfuse = None
 
     monkeypatch.setattr(
+        "rag_system.app.api.query.get_store",
+        lambda: DummyStore(),
+    )
+    monkeypatch.setattr(
         "rag_system.app.api.query.OpenAI",
         lambda api_key=None: DummyOpenAI(),
+    )
+    monkeypatch.setattr(
+        "rag_system.app.api.query.embed_texts",
+        lambda texts: [[0.1, 0.2] for _ in texts],
     )
     monkeypatch.setattr(
         "rag_system.app.api.query.rerank_with_scores",

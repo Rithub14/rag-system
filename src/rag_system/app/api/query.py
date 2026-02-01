@@ -8,9 +8,9 @@ from openai import OpenAI, OpenAIError
 from pydantic import BaseModel, Field
 
 from ..retrieval.bm25_retriever import BM25Retriever
+from ..retrieval.faiss_store import get_store
+from ..retrieval.embeddings import embed_texts
 from ..retrieval.reranker import rerank_with_scores
-from ..retrieval.vector import get_client
-from ..retrieval.vector_retriever import WeaviateRetriever
 from ..response.context_builder import build_context
 from ..observability.metrics import (
     CONTEXT_LENGTH,
@@ -25,7 +25,6 @@ from ..observability.metrics import (
 )
 from ..observability.logging import trace_id_var
 from ..observability.ratelimit import rate_limiter
-from weaviate.classes.query import Filter
 
 router = APIRouter()
 logger = logging.getLogger("rag")
@@ -107,20 +106,13 @@ def query_docs(
         span.end(metadata={"latency_ms": 0})
 
     try:
-        vector_retriever: WeaviateRetriever | None = getattr(
-            request.app.state, "vector_retriever", None
-        )
-        if vector_retriever is None:
-            try:
-                client = get_client()
-            except Exception as exc:
-                ERRORS_TOTAL.labels(endpoint="/api/query").inc()
-                raise HTTPException(
-                    status_code=503, detail="Vector store is unavailable."
-                ) from exc
-            request.app.state.weaviate_client = client
-            vector_retriever = WeaviateRetriever(client)
-            request.app.state.vector_retriever = vector_retriever
+        try:
+            store = get_store()
+        except Exception as exc:
+            ERRORS_TOTAL.labels(endpoint="/api/query").inc()
+            raise HTTPException(
+                status_code=503, detail="Vector store is unavailable."
+            ) from exc
 
         # Dense retrieval
         dense_span = (
@@ -129,10 +121,27 @@ def query_docs(
             else None
         )
         dense_start = time.perf_counter()
-        filters = Filter.by_property("user_id").equal(user_context["user_id"])
-        if payload.doc_id:
-            filters = filters & Filter.by_property("doc_id").equal(payload.doc_id)
-        dense_results = vector_retriever.query(payload.query, k=payload.k, filters=filters)
+        try:
+            query_vec = embed_texts([payload.query])[0]
+        except OpenAIError as exc:
+            ERRORS_TOTAL.labels(endpoint="/api/query").inc()
+            raise HTTPException(
+                status_code=502,
+                detail="Embedding provider error. Check OPENAI_API_KEY.",
+            ) from exc
+
+        try:
+            dense_results = store.search(
+                query_vector=query_vec,
+                k=payload.k,
+                user_id=user_context["user_id"],
+                doc_id=payload.doc_id,
+            )
+        except Exception as exc:
+            ERRORS_TOTAL.labels(endpoint="/api/query").inc()
+            raise HTTPException(
+                status_code=503, detail="Vector store is unavailable."
+            ) from exc
         dense_latency = (time.perf_counter() - dense_start) * 1000
         LATENCY_SECONDS.labels(stage="dense_retrieval").observe(dense_latency / 1000)
         dense_ids = [chunk_id(doc) for doc in dense_results]

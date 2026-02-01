@@ -8,8 +8,7 @@ from .api.query import router as query_router
 from .api.session import router as session_router
 from .observability.langfuse import configure_langfuse_logging, get_langfuse
 from .observability.logging import configure_json_logging, request_id_var
-from .retrieval.vector import get_client
-from .retrieval.vector_retriever import WeaviateRetriever
+from .retrieval.faiss_store import get_store
 
 load_dotenv(".env")
 configure_langfuse_logging()
@@ -47,18 +46,15 @@ async def ensure_browser_id(request: Request, call_next):
 
 @app.on_event("startup")
 def startup() -> None:
-    # Defer Weaviate connection to first request so the API can start
-    # even if Weaviate is sleeping or temporarily unavailable.
-    app.state.weaviate_client = None
-    app.state.vector_retriever = None
+    app.state.store = get_store()
     app.state.langfuse = get_langfuse(raise_if_configured=True)
 
 
 @app.on_event("shutdown")
 def shutdown() -> None:
-    client = getattr(app.state, "weaviate_client", None)
-    if client is not None:
-        client.close()
+    store = getattr(app.state, "store", None)
+    if store is not None:
+        store.close()
     langfuse = getattr(app.state, "langfuse", None)
     if langfuse is not None and hasattr(langfuse, "flush"):
         langfuse.flush()

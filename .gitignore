@@ -8,3 +8,5 @@ src/enterprise_rag_system.egg-info
 .egg-info/
 reports/
 data/app.db
+data/rag.db
+data/faiss.index

@@ -10,7 +10,7 @@ from pypdf import PdfReader
 from ..observability.ratelimit import rate_limiter
 from ..retrieval.chunking import chunk_text
 from ..retrieval.embeddings import embed_texts
-from ..retrieval.vector import ensure_schema, get_client, store_chunks
+from ..retrieval.faiss_store import get_store
 
 router = APIRouter()
 
@@ -117,16 +117,15 @@ async def ingest_file(
         ) from exc
 
     try:
-        client = get_client()
+        store = get_store()
+        stored = store.add_chunks(
+            [{"content": c.content, **c.metadata} for c in chunks],
+            embeddings,
+        )
     except Exception as exc:
         raise HTTPException(
             status_code=503,
             detail="Vector store unavailable. Try again in a minute.",
         ) from exc
-    try:
-        ensure_schema(client)
-        store_chunks(client, chunks, embeddings)
-    finally:
-        client.close()
 
-    return {"doc_id": doc_id, "chunks": len(chunks), "filename": file.filename}
+    return {"doc_id": doc_id, "chunks": stored, "filename": file.filename}

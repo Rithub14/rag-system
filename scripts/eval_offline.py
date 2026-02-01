@@ -15,10 +15,9 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from rag_system.app.retrieval.reranker import rerank_with_scores
-from rag_system.app.retrieval.vector import get_client
-from rag_system.app.retrieval.vector_retriever import WeaviateRetriever
+from rag_system.app.retrieval.faiss_store import get_store
+from rag_system.app.retrieval.embeddings import embed_texts
 from rag_system.app.response.context_builder import build_context
-from weaviate.classes.query import Filter
 
 
 @dataclass
@@ -51,14 +50,16 @@ def chunk_id(chunk: Dict) -> str:
 
 
 def run_case(
-    client: WeaviateRetriever,
+    store,
     case: EvalCase,
     k: int = 5,
 ) -> Tuple[Dict, Dict]:
-    filters = Filter.by_property("user_id").equal(case.user_id) & Filter.by_property(
-        "doc_id"
-    ).equal(case.doc_id)
-    dense = client.query(case.query, k=k, filters=filters)
+    dense = store.search(
+        query_vector=embed_texts([case.query])[0],
+        k=k,
+        user_id=case.user_id,
+        doc_id=case.doc_id,
+    )
     filtered = dense
     reranked_with_scores = rerank_with_scores(case.query, filtered)
     reranked = [doc for doc, _ in reranked_with_scores]
@@ -105,18 +106,14 @@ def main() -> None:
         print("No eval cases found.")
         return
 
-    weaviate_client = get_client()
-    retriever = WeaviateRetriever(weaviate_client)
+    store = get_store()
     results = []
     recalls = []
 
-    try:
-        for case in cases:
-            result, metrics = run_case(retriever, case, k=5)
-            results.append(result)
-            recalls.append(metrics["recall"])
-    finally:
-        weaviate_client.close()
+    for case in cases:
+        result, metrics = run_case(store, case, k=5)
+        results.append(result)
+        recalls.append(metrics["recall"])
 
     avg_recall = sum(recalls) / max(1, len(recalls))
     report = {

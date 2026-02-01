@@ -12,7 +12,7 @@ load_dotenv()
 
 from rag_system.app.retrieval.chunking import chunk_text
 from rag_system.app.retrieval.embeddings import embed_texts
-from rag_system.app.retrieval.vector import get_client, ensure_schema, store_chunks
+from rag_system.app.retrieval.faiss_store import get_store
 
 
 def load_text(file_path: Path) -> str:
@@ -22,25 +22,20 @@ def load_text(file_path: Path) -> str:
 def main() -> None:
     docs_path = Path("data/raw_docs")
 
-    client = get_client()
-    try:
-        ensure_schema(client)
+    store = get_store()
+    for file in docs_path.glob("*.txt"):
+        text = load_text(file)
+        metadata = {
+            "source": file.name,
+            "user_id": "seed",
+            "doc_id": file.stem,
+        }
+        chunks = chunk_text(text, metadata)
+        embeddings = embed_texts([c.content for c in chunks])
 
-        for file in docs_path.glob("*.txt"):
-            text = load_text(file)
-            metadata = {
-                "source": file.name,
-                "user_id": "seed",
-                "doc_id": file.stem,
-            }
-            chunks = chunk_text(text, metadata)
-            embeddings = embed_texts([c.content for c in chunks])
+        store.add_chunks([{"content": c.content, **c.metadata} for c in chunks], embeddings)
 
-            store_chunks(client, chunks, embeddings)
-
-            print(f"Ingested {file.name} ({len(chunks)} chunks)")
-    finally:
-        client.close()
+        print(f"Ingested {file.name} ({len(chunks)} chunks)")
 
 
 if __name__ == "__main__":

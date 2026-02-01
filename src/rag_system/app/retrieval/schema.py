@@ -1,8 +1,7 @@
-from dataclasses import dataclass
 from typing import Dict, Any
+from pydantic import BaseModel
 
 
-@dataclass
-class DocumentChunk:
+class DocumentChunk(BaseModel):
     content: str
     metadata: Dict[str, Any]

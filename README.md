@@ -1,26 +1,21 @@
 # RAG System
 
-RAG pipeline with user-scoped retrieval, reranking, tracing, metrics,
-and offline evaluation.
+RAG pipeline with SQLite + FAISS storage, user-scoped retrieval, reranking,
+tracing, metrics, and offline evaluation.
 
 ## Quick start
 
-1) Start Weaviate
-```
-docker compose up -d weaviate
-```
-
-2) Ingest docs (optional)
+1) Ingest docs (optional)
 ```
 uv run -m scripts.ingest_docs
 ```
 
-3) Run the API
+2) Run the API
 ```
 PYTHONPATH=src uv run -m uvicorn rag_system.main:app
 ```
 
-4) Query
+3) Query
 ```
 curl -X POST "http://127.0.0.1:8000/api/query" \
   -H "Content-Type: application/json" \
@@ -54,8 +49,8 @@ Required:
 - `OPENAI_API_KEY`
 
 Optional:
-- `WEAVIATE_URL` (default `http://localhost:8080`)
-- `WEAVIATE_GRPC_PORT` (default `50051`)
+- `RAG_DB_PATH` (default `data/rag.db`)
+- `RAG_INDEX_PATH` (default `data/faiss.index`)
 - `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST`
 - `APP_ENV`
 
