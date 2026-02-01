@@ -16,7 +16,7 @@ COPY scripts ./scripts
 
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir uv \
-    && uv sync --frozen --no-dev --system
+    && uv sync --frozen --no-dev
 
 EXPOSE 8000
 
