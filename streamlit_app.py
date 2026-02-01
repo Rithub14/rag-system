@@ -91,6 +91,9 @@ with st.sidebar:
     )
     temperature = st.slider("Temperature", min_value=0.0, max_value=1.0, value=0.2, step=0.05)
     rerank = st.checkbox("Rerank", value=True)
+    enable_tools = st.checkbox("Enable tool router", value=True)
+    enable_followups = st.checkbox("Generate follow-ups", value=True)
+    enable_planning = st.checkbox("Enable planning (slower)", value=False)
     include_citations = st.checkbox("Include citations", value=True)
     show_raw = st.checkbox("Show raw results", value=False)
 
@@ -104,6 +107,9 @@ if st.button("Search"):
         "max_answer_tokens": int(max_answer_tokens),
         "temperature": float(temperature),
         "rerank": bool(rerank),
+        "enable_tools": bool(enable_tools),
+        "enable_followups": bool(enable_followups),
+        "enable_planning": bool(enable_planning),
         "include_citations": bool(include_citations),
     }
     try:
@@ -133,6 +139,16 @@ if st.button("Search"):
 
         st.subheader("Context")
         st.code(data.get("context", ""), language="text")
+
+        if data.get("tool_used") and data.get("tool_output"):
+            st.subheader(f"Tool output: {data['tool_used']}")
+            st.code(data.get("tool_output", ""), language="text")
+
+        followups = data.get("follow_ups") or []
+        if followups:
+            st.subheader("Follow-up questions")
+            for item in followups:
+                st.markdown(f"- {item}")
 
         if include_citations:
             st.subheader("Related citations")
