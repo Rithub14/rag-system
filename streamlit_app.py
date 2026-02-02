@@ -57,6 +57,8 @@ if "user_id" not in st.session_state:
     st.session_state.user_id = ensure_user_id()
 if "doc_ids" not in st.session_state:
     st.session_state.doc_ids = []
+if "active_doc_id" not in st.session_state:
+    st.session_state.active_doc_id = None
 if "chat_turns" not in st.session_state:
     st.session_state.chat_turns = []
 if "chat_started_at" not in st.session_state:
@@ -80,6 +82,7 @@ with st.sidebar:
             try:
                 result = ingest_pdf(st.session_state.user_id, uploaded)
                 st.session_state.doc_ids.append(result["doc_id"])
+                st.session_state.active_doc_id = result["doc_id"]
                 st.success(f"Ingested {result['chunks']} chunks.")
             except httpx.HTTPStatusError as exc:
                 if exc.response.status_code == 429:
@@ -114,6 +117,7 @@ if st.button("Search"):
     payload = {
         "query": query,
         "k": int(k),
+        "doc_id": st.session_state.active_doc_id,
         "max_context_tokens": int(max_context_tokens),
         "max_answer_tokens": int(max_answer_tokens),
         "temperature": float(temperature),
@@ -123,6 +127,9 @@ if st.button("Search"):
         "enable_planning": bool(enable_planning),
         "include_citations": bool(include_citations),
     }
+    if not st.session_state.active_doc_id:
+        st.warning("Please ingest a document first.")
+        st.stop()
     try:
         data = post_query(payload)
     except httpx.HTTPStatusError as exc:
